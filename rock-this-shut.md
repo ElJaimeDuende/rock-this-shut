@@ -153,10 +153,32 @@ description: Transposes the visual language of a reference image or GIF to a new
    - Use the colors, typography, and animations from SPECIFY
    - Be visually close enough to the reference that the user can evaluate the transposition
 
-3. After showing/presenting the mock, asks about each area:
-   > "¿Cómo se ve? Podés pedirme ajustes por componente. Ejemplo: 'el punto C se mueve muy rápido' o 'el color del título no es el que tenía en mente'."
+3. **Always injects the Annotation System** (see Annotation System Template section) before `</body>` in every generated mock. No exceptions.
 
-4. Applies adjustments iteratively. Regenerates the mock after each batch of changes.
+4. After showing the mock, says:
+   > "Abrí el mock en tu browser. Usá el botón **✏ ANNOTATE** para marcar ajustes directamente sobre el mock — hacé click en cualquier elemento, escribí el cambio, y cuando termines clickeá **Copy for Claude** y pegá las anotaciones aquí."
+
+### Phase 4.2 — ITERATE
+
+**Trigger:** User pastes annotations in `[n] comment` format (output of "Copy for Claude" button).
+
+**Claude does:**
+
+1. Parses each annotation. Maps each `[n]` to the visual element the user clicked (infer from comment context + position in the component list).
+
+2. For each annotation, identifies:
+   - Which component it affects (A, B, C... from DECODE)
+   - What visual property to change (color, size, font, spacing, layout, text, etc.)
+   - The specific new value or direction
+
+3. Applies all changes to the mock HTML file.
+
+4. Re-injects the Annotation System clean (no previous pins — user starts fresh).
+
+5. Shows the new mock version and says:
+   > "Versión [N+1] lista. Revisá con ANNOTATE o confirmá si está aprobado."
+
+6. Repeats Phase 4.2 until the user approves.
 
 5. **GATE + HANDOFF:** When the user approves the mock, says:
    > "Mock aprobado. Voy a generar los archivos de salida."
@@ -187,6 +209,143 @@ Never force a mapping. Say explicitly: "Este componente no tiene un equivalente 
 
 **Language:**
 Responde en el idioma en que el usuario escribe. Si el usuario escribe en español, responde en español. Si escribe en inglés, responde en inglés.
+
+## Annotation System Template
+
+Always append this block before `</body>` in every generated mock. It provides an in-browser annotation UI for the user to mark changes and send them back to Claude.
+
+```html
+<!-- ANNOTATION SYSTEM — rock-this-shut v2 -->
+<style>
+  #ann-toggle {
+    position: fixed; top: 16px; right: 16px;
+    background: #00FF41; color: #080808;
+    font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; padding: 8px 18px;
+    cursor: pointer; z-index: 1000; user-select: none;
+    border: 1px solid #00FF41;
+  }
+  body.ann-mode { cursor: crosshair; }
+  body.ann-mode #ann-toggle { background: #080808; color: #00FF41; }
+  #ann-panel {
+    position: fixed; top: 56px; right: 16px; width: 260px;
+    background: #0d0d0d; border: 1px solid #00FF41; color: #00FF41;
+    font-family: monospace; font-size: 11px;
+    z-index: 999; display: flex; flex-direction: column;
+    max-height: calc(100vh - 80px);
+  }
+  #ann-panel-header {
+    padding: 8px 12px; border-bottom: 1px solid #00CC33;
+    font-size: 10px; letter-spacing: 0.12em; color: #00CC33; text-transform: uppercase;
+  }
+  #ann-list { flex: 1; overflow-y: auto; padding: 10px 12px; }
+  .ann-empty { color: #00CC33; line-height: 1.8; }
+  .ann-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+  .ann-num {
+    background: #00FF41; color: #080808; font-size: 10px; font-weight: 700;
+    min-width: 20px; height: 20px; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0;
+  }
+  .ann-text { color: #00FF41; line-height: 1.5; }
+  #ann-panel-actions { padding: 8px 12px; border-top: 1px solid #00CC33; display: flex; flex-direction: column; gap: 6px; }
+  #ann-copy, #ann-clear {
+    background: transparent; border: 1px solid #00FF41; color: #00FF41;
+    font-family: monospace; font-size: 9px; letter-spacing: 0.1em;
+    padding: 6px; cursor: pointer; width: 100%; text-transform: uppercase;
+  }
+  #ann-copy:hover { background: #00FF41; color: #080808; }
+  #ann-clear:hover { border-color: #ff4141; color: #ff4141; }
+  .ann-pin {
+    position: fixed; width: 22px; height: 22px;
+    background: #00FF41; color: #080808; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1001; transform: translate(-50%, -50%);
+    pointer-events: none; box-shadow: 0 0 8px #00FF41;
+  }
+  .ann-input-box {
+    position: fixed; width: 260px; background: #0d0d0d;
+    border: 1px solid #00FF41; padding: 10px; z-index: 1002;
+    box-shadow: 0 0 12px rgba(0,255,65,0.3);
+  }
+  .ann-input-box textarea {
+    width: 100%; background: #080808; border: 1px solid #00CC33; color: #00FF41;
+    font-family: monospace; font-size: 11px; padding: 6px; resize: none; outline: none; line-height: 1.5;
+  }
+  .ann-input-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .ann-save, .ann-cancel {
+    flex: 1; background: transparent; border: 1px solid #00FF41; color: #00FF41;
+    font-family: monospace; font-size: 9px; letter-spacing: 0.1em;
+    padding: 5px; cursor: pointer; text-transform: uppercase;
+  }
+  .ann-save { background: #00FF41; color: #080808; }
+  .ann-cancel:hover { border-color: #ff4141; color: #ff4141; }
+</style>
+
+<div id="ann-toggle" onclick="toggleAnnotation()">✏ ANNOTATE</div>
+<div id="ann-panel">
+  <div id="ann-panel-header">Annotations</div>
+  <div id="ann-list"><p class="ann-empty">Click ANNOTATE, then<br>click any element to comment.</p></div>
+  <div id="ann-panel-actions">
+    <button id="ann-copy" onclick="copyAnnotations()">Copy for Claude</button>
+    <button id="ann-clear" onclick="clearAnnotations()">Clear All</button>
+  </div>
+</div>
+
+<script>
+  let annotationMode = false, annotations = [], nextId = 1, activeInput = null;
+  function toggleAnnotation() {
+    annotationMode = !annotationMode;
+    document.body.classList.toggle('ann-mode', annotationMode);
+    document.getElementById('ann-toggle').textContent = annotationMode ? '✓ DONE' : '✏ ANNOTATE';
+  }
+  document.addEventListener('click', function(e) {
+    if (!annotationMode) return;
+    if (e.target.closest('#ann-toggle') || e.target.closest('#ann-panel') || e.target.closest('.ann-input-box')) return;
+    if (activeInput) { activeInput.remove(); activeInput = null; }
+    const id = nextId++, x = e.clientX, y = e.clientY;
+    const pin = document.createElement('div');
+    pin.className = 'ann-pin'; pin.textContent = id;
+    pin.style.left = x + 'px'; pin.style.top = y + 'px';
+    document.body.appendChild(pin);
+    const box = document.createElement('div');
+    box.className = 'ann-input-box';
+    box.style.left = Math.min(x + 20, window.innerWidth - 280) + 'px';
+    box.style.top = Math.min(y - 10, window.innerHeight - 130) + 'px';
+    box.innerHTML = '<textarea rows="3" placeholder="Describe the change..."></textarea><div class="ann-input-actions"><button class="ann-save">Add</button><button class="ann-cancel">Cancel</button></div>';
+    document.body.appendChild(box); activeInput = box;
+    setTimeout(() => box.querySelector('textarea').focus(), 10);
+    box.querySelector('.ann-save').addEventListener('click', function() {
+      const text = box.querySelector('textarea').value.trim();
+      if (text) { annotations.push({id, comment: text}); updatePanel(); } else { pin.remove(); nextId--; }
+      box.remove(); activeInput = null;
+    });
+    box.querySelector('.ann-cancel').addEventListener('click', function() { pin.remove(); nextId--; box.remove(); activeInput = null; });
+    box.querySelector('textarea').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('.ann-save').click(); }
+      if (e.key === 'Escape') { box.querySelector('.ann-cancel').click(); }
+    });
+  });
+  function updatePanel() {
+    const list = document.getElementById('ann-list');
+    if (!annotations.length) { list.innerHTML = '<p class="ann-empty">No annotations yet.</p>'; return; }
+    list.innerHTML = annotations.map(a => '<div class="ann-item"><span class="ann-num">' + a.id + '</span><span class="ann-text">' + a.comment + '</span></div>').join('');
+  }
+  function copyAnnotations() {
+    if (!annotations.length) return;
+    navigator.clipboard.writeText(annotations.map(a => '[' + a.id + '] ' + a.comment).join('\n')).then(() => {
+      const btn = document.getElementById('ann-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy for Claude', 2000);
+    });
+  }
+  function clearAnnotations() {
+    annotations = []; nextId = 1;
+    document.querySelectorAll('.ann-pin').forEach(p => p.remove());
+    updatePanel();
+  }
+</script>
+<!-- END ANNOTATION SYSTEM -->
+```
 
 ## Output Templates
 
