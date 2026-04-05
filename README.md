@@ -23,8 +23,6 @@ Reference image used: **Brass Hands agency card** — military-tactical identity
 
 New use: **Back Burner Mission Control Panel** — internal business operations dashboard for SCI.
 
-![SCI Logo](SCI-cuadrado-negro.png)
-
 The skill decoded the card's components (logo mark, brand title, classification tag, tagline, metadata block, grid), adapted each to the new context, specified the technical implementation, and generated an annotatable HTML mock — all without writing a single line of production code.
 
 ---
